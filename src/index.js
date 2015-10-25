@@ -56,16 +56,31 @@ function parseCmd(err, stdout, stderr){
     
     tmp = tmp[1].split('-');
     var port = tmp[0];
-    log.info( name, address, port);
+
+    if( typeof routingTable[name] === 'undefined' ){
+      log.info('Adding new route:', name);
+    } else if( routingTable[name].address !== address ||
+        routingTable[name].port !== port ){
+      log.info('Updating route:', name);
+    }
+
     routingTable[name] = {
       name: name, 
       address: address,
       port: port
     };
+  } else {
+    log.error( err, stderr);
   }
 }
 
-// escaping the escape sequences looks dumb but necessary
-exec('docker ps --no-trunc | tail -n+2 | awk -F \'\\\\s{2,}\' \'{print $7 "," $6}\'', parseCmd);
+function getRoutingTable(){
+  log.debug('Updating routing table');
+  // escaping the escape sequences looks dumb but necessary
+  exec('docker ps --no-trunc | tail -n+2 | awk -F \'\\\\s{2,}\' \'{print $7 "," $6}\'', parseCmd);
  
+}
+
+getRoutingTable();
+setInterval(getRoutingTable, conf.updateInterval); // update routing table every 10 seconds
 
