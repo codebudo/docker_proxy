@@ -47,8 +47,18 @@ app.listen( conf.httpPort, function() {
 
 // Get info from about running containers
 function parseCmd(err, stdout, stderr){
+  log.warn(stdout);
   if( !err && !stderr ){
-    var tmp = stdout.split(',');
+    var lines = stdout.split('\n');
+  } else {
+    log.error( err, stderr);
+  }
+
+  lines.map(function(input){
+    if( input.length < 1 )
+      return;
+
+    var tmp = input.split(',');
     var name = tmp[0];
 
     tmp = tmp[1].split(':');
@@ -69,9 +79,7 @@ function parseCmd(err, stdout, stderr){
       address: address,
       port: port
     };
-  } else {
-    log.error( err, stderr);
-  }
+  });
 }
 
 function getRoutingTable(){
