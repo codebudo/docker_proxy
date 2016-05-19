@@ -50,21 +50,25 @@ function getRoutingTable(){
   docker.listContainers(function (err, containers) {
     containers.forEach(function (containerInfo) {
       var name = containerInfo.Names[0].substring(1);
-      var address = containerInfo.Ports[0].IP;
-      var port = containerInfo.Ports[0].PublicPort;
+      var port = containerInfo.Ports[0].PrivatePort;
       
-      if( typeof routingTable[name] === 'undefined' ){
-        log.info('Adding new route:', name);
-      } else if( routingTable[name].address !== address ||
-          routingTable[name].port !== port ){
-        log.info('Updating route:', name);
-      }
+      var container = docker.getContainer(containerInfo.Id);
+      container.inspect(function(err, data){
+        var address = data.NetworkSettings.IPAddress;
 
-      routingTable[name] = {
-        name: name, 
-        address: address,
-        port: port
-      };
+        if( typeof routingTable[name] === 'undefined' ){
+          log.debug('Adding new route:', name);
+        } else if( routingTable[name].address !== address ||
+            routingTable[name].port !== port ){
+          log.debug('Updating route:', name);
+        }
+        routingTable[name] = {
+          name: name,
+          address: address,
+          port: port
+        };
+
+      });
     });
   });
 }
