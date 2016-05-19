@@ -5,7 +5,9 @@ var proxy     = require('proxy-middleware');
 var exec      = require('child_process').exec
 var log       = require('./logger');
 var conf      = require('./config');
+var Docker    = require('dockerode');
 
+var docker       = new Docker();
 var routingTable = {};
 
 var app = express();
@@ -40,53 +42,31 @@ app.on('uncaughtException', function(exc){
   log.error(exc);
 });
 
-//http.createServer(app).listen(conf.httpPort);
 app.listen( conf.httpPort, function() {
   log.info('The http server is running on ' + conf.httpPort);
 });
 
-// Get info from about running containers
-function parseCmd(err, stdout, stderr){
-  log.warn(stdout);
-  if( !err && !stderr ){
-    var lines = stdout.split('\n');
-  } else {
-    log.error( err, stderr);
-  }
-
-  lines.map(function(input){
-    if( input.length < 1 )
-      return;
-
-    var tmp = input.split(',');
-    var name = tmp[0];
-
-    tmp = tmp[1].split(':');
-    var address = tmp[0];
-    
-    tmp = tmp[1].split('-');
-    var port = tmp[0];
-
-    if( typeof routingTable[name] === 'undefined' ){
-      log.info('Adding new route:', name);
-    } else if( routingTable[name].address !== address ||
-        routingTable[name].port !== port ){
-      log.info('Updating route:', name);
-    }
-
-    routingTable[name] = {
-      name: name, 
-      address: address,
-      port: port
-    };
-  });
-}
-
 function getRoutingTable(){
-  log.debug('Updating routing table');
-  // escaping the escape sequences looks dumb but necessary
-  exec('docker ps --no-trunc | tail -n+2 | awk -F \'\\\\s{2,}\' \'{print $7 "," $6}\'', parseCmd);
- 
+  docker.listContainers(function (err, containers) {
+    containers.forEach(function (containerInfo) {
+      var name = containerInfo.Names[0].substring(1);
+      var address = containerInfo.Ports[0].IP;
+      var port = containerInfo.Ports[0].PublicPort;
+      
+      if( typeof routingTable[name] === 'undefined' ){
+        log.info('Adding new route:', name);
+      } else if( routingTable[name].address !== address ||
+          routingTable[name].port !== port ){
+        log.info('Updating route:', name);
+      }
+
+      routingTable[name] = {
+        name: name, 
+        address: address,
+        port: port
+      };
+    });
+  });
 }
 
 getRoutingTable();
